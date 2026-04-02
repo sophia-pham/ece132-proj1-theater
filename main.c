@@ -33,6 +33,7 @@
 #define S_HOUSE 1
 #define S_SPEAKER 2
 #define S_MUSIC 3
+#define S_THOUSE 4
 
 //light mappings, per our own assignments/hardware setup
 #define PINS_OFF 0x00
@@ -61,8 +62,9 @@ struct state{
 typedef struct state stype;
 
 //global vars
-stype cstate; //current state
+stype cstate, nstate; //current state
 int input; //00, 01, 10, 11 to represent L and R switches
+int transition;
 
 void main() {
     //set up peripherals (4 input LEDs, 1 IR sensor, 2 SWs)
@@ -71,11 +73,12 @@ void main() {
     ir_setup();
 
     //id - output on B - output on E - delay - next state
-    stype fsm[4] = {
+    stype fsm[5] = {
         {S_OFF, PINS_OFF, PINS_OFF, 10000000, {S_OFF, S_MUSIC, S_SPEAKER, S_HOUSE}}, //0: off
         {S_HOUSE, PINS_OFF, PORT_E_HOUSE, 10000000, {S_HOUSE, S_MUSIC, S_SPEAKER, S_OFF}}, //1: house
         {S_SPEAKER, PORT_B_SPEAKER, PINS_OFF, 10000000, {S_SPEAKER, S_MUSIC, S_HOUSE, S_OFF}}, //2: speaker
-        {S_MUSIC, PINS_OFF, PORT_E_MUSIC, 10000000, {S_MUSIC, S_HOUSE, S_SPEAKER, S_OFF}} //3: music
+        {S_MUSIC, PINS_OFF, PORT_E_MUSIC, 10000000, {S_MUSIC, S_HOUSE, S_SPEAKER, S_OFF}}, //3: music
+        {S_THOUSE, PINS_OFF, PORT_E_HOUSE, 10000000, {}}
     };
     cstate = fsm[0];
 
@@ -86,6 +89,7 @@ void main() {
     //FSM logic
     int input = 0b00; //input combinations: 00, 01, 10, 11, where 1 means that switch is ON
     while(1){
+        transition = 0;
         //update output based on current state
         update_led();
 
@@ -95,11 +99,23 @@ void main() {
         //sample button values to determine next state
         if ((GPIO_PORTF_DATA_R & 0x10) == 0) {
             input += 0b10;
+            transition = 1;
         }
         if ((GPIO_PORTF_DATA_R & 0x01) == 0) {
             input += 0b01;
+            transition = 1;
         }
-        cstate=fsm[cstate.next[input]];
+
+        //next state logic
+        if (cstate.id == S_THOUSE) {
+            cstate = nstate;
+        }
+        else if (transition==1) {
+            //store next state
+            nstate=fsm[cstate.next[input]];
+            //set cstate to THOUSE
+            cstate=fsm[S_THOUSE];
+        }
 
         input = 0;
     }
