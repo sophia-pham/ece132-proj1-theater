@@ -4,7 +4,7 @@
 //Lab section: Tuesday 1:35
 //*************************************************
 //Date Started: 3/31/2026
-//Date of Last Modification:
+//Date of Last Modification: 4/2/2026
 //Assignment: Proj. 1
 //*************************************************
 //Purpose of program: Implement an FSM for a theater's lighting/effects control system.
