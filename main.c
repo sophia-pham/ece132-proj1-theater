@@ -1,3 +1,4 @@
+
 //******************ECE 132*************************
 //Names: Kasey White and Sophia Pham
 //Lab section: Tuesday 1:35
@@ -6,9 +7,9 @@
 //Date of Last Modification:
 //Assignment: Proj. 1
 //*************************************************
-//Purpose of program:
-//Program Inputs:
-//Program Outputs:
+//Purpose of program: Implement an FSM for a theater's lighting/effects control system.
+//Program Inputs: Onboard SW1 and SW2, 1 external IR sensor
+//Program Outputs: 4 external LEDs (1 house, 2 visual, 1 spotlight), simplified for prototype
 //*************************************************
 
 //File include Statements
@@ -25,6 +26,7 @@
 #include "driverlib/sysctl.h"
 #include "driverlib/uart.h"
 #include "driverlib/adc.h"
+#include "driverlib/systick.h"
 
 //index to state mappings
 #define S_OFF 0
@@ -32,11 +34,11 @@
 #define S_SPEAKER 2
 #define S_MUSIC 3
 
-//light mappings
+//light mappings, per our own assignments/hardware setup
 #define PINS_OFF 0x00
-#define PORT_B_SPEAKER 0x01
-#define PORT_E_HOUSE 0x01
-#define PORT_E_MUSIC 0X06
+#define PORT_B_SPEAKER 0x01 //the spotlight output pin, port b
+#define PORT_E_HOUSE 0x01 //the house light output pin, port e
+#define PORT_E_MUSIC 0X06 //the visuals output pins, port e
 
 //prototype funcs
 void button_isr(); //any button press triggers isr
@@ -51,14 +53,15 @@ void systick(int reload_value); //systick setup
 //set up FSM struct and states
 struct state{
     int id;
-    int out[]; //bit pattern for GPIO Port _ outputs
+    int outB; //bit pattern for GPIO Port B outputs
+    int outE; //bit pattern for GPIO Port E outputs
     int wait; //delay in ms?
     unsigned int next[4]; //4 possible input combinations
 };
 typedef struct state stype;
 
 //global vars
-int cstate; //current state
+stype cstate; //current state
 int input; //00, 01, 10, 11 to represent L and R switches
 
 void main() {
@@ -67,24 +70,18 @@ void main() {
     switch_setup();
     ir_setup();
 
-    //output - delay - next state
+    //id - output on B - output on E - delay - next state
     stype fsm[4] = {
-        {S_OFF, {PINS_OFF, PINS_OFF}, 10000, {S_OFF, S_MUSIC, S_SPEAKER, S_HOUSE}}, //0: off
-        {S_HOUSE, {PINS_OFF, PORT_E_HOUSE}, 10000, {S_HOUSE, S_MUSIC, S_SPEAKER, S_OFF}}, //1: house
-        {S_SPEAKER, {PORT_B_SPEAKER, PINS_OFF}, 10000, {S_SPEAKER, S_MUSIC, S_HOUSE, S_OFF}}, //2: speaker
-        {S_MUSIC, {PINS_OFF, PORT_E_MUSIC}, 10000, {S_MUSIC, S_HOUSE, S_SPEAKER, S_OFF}} //3: music
+        {S_OFF, PINS_OFF, PINS_OFF, 10000, {S_OFF, S_MUSIC, S_SPEAKER, S_HOUSE}}, //0: off
+        {S_HOUSE, PINS_OFF, PORT_E_HOUSE, 10000, {S_HOUSE, S_MUSIC, S_SPEAKER, S_OFF}}, //1: house
+        {S_SPEAKER, PORT_B_SPEAKER, PINS_OFF, 10000, {S_SPEAKER, S_MUSIC, S_HOUSE, S_OFF}}, //2: speaker
+        {S_MUSIC, PINS_OFF, PORT_E_MUSIC, 10000, {S_MUSIC, S_HOUSE, S_SPEAKER, S_OFF}} //3: music
     };
     cstate = fsm[0];
 
     //set up interrupts
-//    //configure interrupt for when button data falls to 0 (active low)
-//    GPIOIntTypeSet(GPIO_PORTF_BASE, GPIO_PIN_4 | GPIO_PIN_0, GPIO_FALLING_EDGE); //add pin0 (sw2) where applicable
-//    //tie handler to ivt
-//    GPIOIntRegister(GPIO_PORTF_BASE, isr);
-//    //enable int
-//    GPIOIntEnable(GPIO_PORTF_BASE, GPIO_INT_PIN_4 | GPIO_INT_PIN_0);
     systick(0x001312CF); //init systick with reload
-    SysTickIntReigster(blink);
+    SysTickIntRegister(blink);
 
     //FSM logic
     int input = 0b00; //input combinations: 00, 01, 10, 11, where 1 means that switch is ON
@@ -108,15 +105,6 @@ void main() {
     }
 }
 
-///* triggered on any button press
-// * set the new state based on input + current state */
-//void button_isr(){
-//    //what is the current state?
-//    //based on that update the next state
-//    //input combinations: 00, 01, 10, 11, where 1 means that switch is ON
-//
-//}
-
 /* toggles LED on systick interrupt*/
 void blink(){
     if (cstate.id == S_MUSIC){
@@ -127,25 +115,11 @@ void blink(){
 /* called from main
  * updates LED based on current state */
 void update_led(){ //this will need to be updated with IR constraints later
-//    switch(state){
-//        case 0: //S_OFF
-//            GPIO_PORTE_DATA_R |= 0x00; //house, visual leds off
-//            GPIO_PORTB_DATA_R |= 0x00; //spotlight leds off
-//            break;
-//        case 1: //S_HOUSE
-//            //all leds off
-//            GPIO_PORTE_DATA_R |= 0x00; //house, visual leds off
-//            GPIO_PORTB_DATA_R |= 0x00; //spotlight leds off
-//
-//
-//            GPIO_PORTE_DATA_R |= 0x01; //house lights on
-//            break;
-//    }
     if(cstate.id == S_SPEAKER)
-        GPIO_PORT_B_DATA_R = cstate.out[0];//port B outputs (8-bit pattern)
-    else GPIO_PORT_B_DATA_R = PINS_OFF;
+        GPIO_PORTB_DATA_R = cstate.outB;//port B outputs (8-bit pattern)
+    else GPIO_PORTB_DATA_R = PINS_OFF;
 
-    GPIO_PORTE_DATA_R = cstate.out[1];//port E outputs
+    GPIO_PORTE_DATA_R = cstate.outE;//port E outputs
 }
 
 /*port output setup (leds)*/
