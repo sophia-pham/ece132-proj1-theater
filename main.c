@@ -72,10 +72,10 @@ void main() {
 
     //id - output on B - output on E - delay - next state
     stype fsm[4] = {
-        {S_OFF, PINS_OFF, PINS_OFF, 10000, {S_OFF, S_MUSIC, S_SPEAKER, S_HOUSE}}, //0: off
-        {S_HOUSE, PINS_OFF, PORT_E_HOUSE, 10000, {S_HOUSE, S_MUSIC, S_SPEAKER, S_OFF}}, //1: house
-        {S_SPEAKER, PORT_B_SPEAKER, PINS_OFF, 10000, {S_SPEAKER, S_MUSIC, S_HOUSE, S_OFF}}, //2: speaker
-        {S_MUSIC, PINS_OFF, PORT_E_MUSIC, 10000, {S_MUSIC, S_HOUSE, S_SPEAKER, S_OFF}} //3: music
+        {S_OFF, PINS_OFF, PINS_OFF, 10000000, {S_OFF, S_MUSIC, S_SPEAKER, S_HOUSE}}, //0: off
+        {S_HOUSE, PINS_OFF, PORT_E_HOUSE, 10000000, {S_HOUSE, S_MUSIC, S_SPEAKER, S_OFF}}, //1: house
+        {S_SPEAKER, PORT_B_SPEAKER, PINS_OFF, 10000000, {S_SPEAKER, S_MUSIC, S_HOUSE, S_OFF}}, //2: speaker
+        {S_MUSIC, PINS_OFF, PORT_E_MUSIC, 10000000, {S_MUSIC, S_HOUSE, S_SPEAKER, S_OFF}} //3: music
     };
     cstate = fsm[0];
 
@@ -114,8 +114,8 @@ void blink(){
 
 /* called from main
  * updates LED based on current state */
-void update_led(){ //this will need to be updated with IR constraints later
-    if(cstate.id == S_SPEAKER)
+void update_led(){
+    if((cstate.id == S_SPEAKER) && ((GPIO_PORTF_DATA_R & 0x08)==0))
         GPIO_PORTB_DATA_R = cstate.outB;//port B outputs (8-bit pattern)
     else GPIO_PORTB_DATA_R = PINS_OFF;
 
@@ -129,12 +129,12 @@ void led_setup(void){
     SYSCTL_RCGCGPIO_R |= 0x02; //port B
 
     //direction for output
-    GPIO_PORTE_DIR_R |= 0x0F; //direction for PE0 - PE3 house, visuals leds
-    GPIO_PORTB_DIR_R |= 0x23; //direction for PB5, PB0, PB1 spotlight leds
+    GPIO_PORTE_DIR_R |= 0x07; //direction for PE0 - PE2 house, visuals leds
+    GPIO_PORTB_DIR_R |= 0x01; //direction for PB0 spotlight leds
 
     //data enable
-    GPIO_PORTE_DEN_R |= 0x0F;  //data for PE0 - PE3 house, visuals leds
-    GPIO_PORTB_DEN_R |= 0x23; //data for PB0 - PB2 spotlight leds
+    GPIO_PORTE_DEN_R |= 0x07;  //data for PE0 - PE3 house, visuals leds
+    GPIO_PORTB_DEN_R |= 0x01; //data for PB0 - PB2 spotlight leds
 }
 
 /*switch input setup (port F)*/
@@ -157,18 +157,18 @@ void switch_setup() {
     GPIO_PORTF_DEN_R |= in_pins;
 }
 
-/*IR input setup (port B)*/
+/*IR input setup (port F)*/
 void ir_setup() {
     int in_pins = 0x08;
     //configure the Clock
     SYSCTL_RCGCGPIO_R |= 0b00100000; //port F
 
     // set Direction for in_pins, set to 0 for input
-    GPIO_PORTB_DIR_R &= ~in_pins; //if dir = 01111111 then &= ~(b00010001) then dir = 01101110
+    GPIO_PORTF_DIR_R &= ~in_pins; //if dir = 01111111 then &= ~(b00010001) then dir = 01101110
     // set Pull Up Resistor, PUR = 1 for in_pins
-    GPIO_PORTB_PUR_R |= in_pins; //PUR is HIGH for inputs
+    GPIO_PORTF_PUR_R |= in_pins; //PUR is HIGH for inputs
     // set Data Enable on for in_pins
-    GPIO_PORTB_DEN_R |= in_pins;
+    GPIO_PORTF_DEN_R |= in_pins;
 }
 
 /*---SYSTICK SETUP---*/
