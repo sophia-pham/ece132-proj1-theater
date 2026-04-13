@@ -158,7 +158,7 @@ void led_setup(void){
     GPIO_PORTB_DIR_R |= 0x01; //direction for PB0 spotlight leds
 
     //data enable
-    GPIO_PORTE_DEN_R |= 0x07;  //data for PE0 - PE3 house, visuals leds
+    GPIO_PORTE_DEN_R |= 0x07;  //data for PE0 - PE2 house, visuals leds
     GPIO_PORTB_DEN_R |= 0x01; //data for PB0 - PB2 spotlight leds
 }
 
